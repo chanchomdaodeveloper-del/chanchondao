@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ชานชมดาว - ตั้งค่าระบบแพ็กเกจโซน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
+        
+        .sidebar { height: 100vh; position: fixed; left: 0; top: 0; width: 260px; background: white; border-right: 1px solid #f1f5f9; z-index: 40; }
+        .main-content { margin-left: 260px; min-height: 100vh; padding: 2rem; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #64748b; font-weight: 500; border-radius: 12px; transition: all 0.2s; margin-bottom: 8px; }
+        .nav-item:hover, .nav-item.active { background: #eff6ff; color: #1f8ffd; }
+        .nav-item.active { font-weight: 600; }
+
+        .setting-tab { padding: 16px 24px; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; transition: all 0.3s ease; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .setting-tab:hover { color: #0f172a; }
+        .setting-tab.active { color: #1f8ffd; border-bottom-color: #1f8ffd; }
+
+        input[type="color"] { -webkit-appearance: none; border: none; width: 44px; height: 44px; border-radius: 12px; cursor: pointer; padding: 0; background: none; box-shadow: 0 0 0 1px #e2e8f0; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 12px; }
+
+        .tab-content { display: none; animation: slideFade 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .tab-content.active { display: block; }
+        @keyframes slideFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.4); backdrop-filter: blur(8px); z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -45%) scale(0.95); background: white; z-index: 60; border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+        .modal.active .modal-overlay, .modal.active .modal-content { opacity: 1; pointer-events: auto; }
+        .modal.active .modal-content { transform: translate(-50%, -50%) scale(1); }
+
+        .toast { position: fixed; bottom: 30px; right: 30px; background: #0f172a; color: white; padding: 16px 24px; border-radius: 16px; font-weight: 600; display: flex; align-items: center; gap: 12px; transform: translateY(100px); opacity: 0; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        
+        .room-checkbox { display: none; }
+        .room-label { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: white; }
+        .room-checkbox:checked + .room-label { border-color: #f97316; background: #fff7ed; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar p-6 flex flex-col">
+        <div class="flex items-center gap-3 mb-10 px-2">
+            <div class="bg-[#1f8ffd] p-2 rounded-xl text-white shadow-lg"><i data-lucide="moon-star" class="w-6 h-6"></i></div>
+            <h1 class="text-xl font-bold text-slate-800">ชานชมดาว</h1>
+        </div>
+        <nav class="flex-1 space-y-1">
+            <a href="index.html" class="nav-item"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> ภาพรวม</a>
+            <a href="calendar.html" class="nav-item"><i data-lucide="calendar-days" class="w-5 h-5"></i> ปฏิทินจองห้องพัก</a>
+            <a href="atv.html" class="nav-item"><i data-lucide="car-front" class="w-5 h-5"></i> ระบบลงยอด ATV</a>
+            <a href="billing.html" class="nav-item"><i data-lucide="receipt" class="w-5 h-5"></i> จัดการบิล / ของใช้</a>
+        </nav>
+        <div class="border-t border-slate-100 pt-6 mt-6">
+            <a href="settings.html" class="nav-item active"><i data-lucide="settings" class="w-5 h-5"></i> ตั้งค่าระบบ</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="mb-8">
+            <h2 class="text-3xl font-black text-slate-800 mb-2">ตั้งค่าระบบ (Master Data)</h2>
+            <p class="text-slate-500 font-medium">จัดการคลังห้องพัก และสร้างแพ็กเกจโซนเพื่อมัดรวมห้องจัดโปรโมชัน</p>
+        </header>
+
+        <div class="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+            <div class="flex border-b border-slate-100 px-6 pt-2 bg-slate-50/50">
+                <button onclick="switchTab('rooms')" id="tab-rooms" class="setting-tab active"><i data-lucide="door-open" class="w-5 h-5"></i> คลังห้องพักหลัก</button>
+                <button onclick="switchTab('zones')" id="tab-zones" class="setting-tab"><i data-lucide="layers" class="w-5 h-5"></i> แพ็กเกจ / โซน (ออปชันเสริม)</button>
+                <button onclick="switchTab('agents')" id="tab-agents" class="setting-tab"><i data-lucide="users" class="w-5 h-5"></i> นายหน้า</button>
+                <button onclick="switchTab('items')" id="tab-items" class="setting-tab"><i data-lucide="shopping-bag" class="w-5 h-5"></i> สินค้าบริการเสริม</button>
+            </div>
+
+            <div class="p-8 min-h-[600px]">
+                
+                <div id="content-rooms" class="tab-content active">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-lg font-black text-slate-800">ฐานข้อมูลห้องพักรายห้อง</h3>
+                            <p class="text-sm text-slate-500">สร้างห้องเดี่ยวๆ ตั้งสี และราคาพื้นฐาน</p>
+                        </div>
+                        <button onclick="openModal('room')" class="bg-[#1f8ffd] text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-600 transition shadow-lg">
+                            <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มห้องพัก
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="rooms-grid"></div>
+                </div>
+
+                <div id="content-zones" class="tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-lg font-black text-slate-800">ออปชันแพ็กเกจ / โซนเหมา</h3>
+                            <p class="text-sm text-slate-500">สร้างโซนน่าสนใจ แล้วจับคู่ห้องหลายหลังมามัดรวมกันในราคาสุดคุ้ม</p>
+                        </div>
+                        <button onclick="openModal('zone')" class="bg-orange-500 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition shadow-lg">
+                            <i data-lucide="plus" class="w-4 h-4"></i> สร้างแพ็กเกจโซน
+                        </button>
+                    </div>
+                    <div class="space-y-4" id="zones-list"></div>
+                </div>
+
+                <div id="content-agents" class="tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-black text-slate-800">ผู้ปล่อยบ้าน / เอเจนซี่</h3>
+                        <button onclick="openModal('agent')" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition shadow-md"><i data-lucide="plus" class="w-4 h-4"></i> เพิ่มนายหน้า</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="agents-grid"></div>
+                </div>
+
+                <div id="content-items" class="tab-content">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-black text-slate-800">สินค้าและกิจกรรม</h3>
+                        <button onclick="openModal('item')" class="bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-600 transition shadow-md"><i data-lucide="plus" class="w-4 h-4"></i> เพิ่มรายการ</button>
+                    </div>
+                    <table class="w-full text-left border border-slate-200 rounded-2xl overflow-hidden">
+                        <thead class="bg-slate-50 text-xs uppercase font-bold text-slate-400">
+                            <tr><th class="py-4 px-6">หมวดหมู่</th><th class="py-4 px-6">ชื่อรายการ</th><th class="py-4 px-6 text-right">ราคา (฿)</th><th class="py-4 px-6 text-center">จัดการ</th></tr>
+                        </thead>
+                        <tbody id="items-table-body"></tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="modal-room" class="modal">
+        <div class="modal-overlay" onclick="closeModal('modal-room')"></div>
+        <div class="modal-content">
+            <div class="bg-slate-50 px-8 py-5 border-b border-slate-100 flex justify-between items-center">
+                <h2 id="room-modal-title" class="text-xl font-black text-slate-800">เพิ่มห้องพักใหม่</h2>
+                <button onclick="closeModal('modal-room')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-room" class="p-8 space-y-6">
+                <input type="hidden" id="room-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ชื่อห้องพัก</label>
+                    <input type="text" id="room-name" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd]">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">จิ้มเลือกสีประจำห้อง (HEX Color)</label>
+                    <div class="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <input type="color" id="room-color" value="#1f8ffd" class="cursor-pointer">
+                        <p class="text-xs font-bold text-slate-500">สีนี้จะถูกนำไปแสดงเวลาลูกค้าจองห้องนี้</p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ราคาพื้นฐานต่อคืน (บาท)</label>
+                    <input type="number" id="room-price" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd]">
+                </div>
+                <button type="submit" class="w-full bg-[#1f8ffd] text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-600 transition">บันทึกข้อมูลห้องพัก</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-zone" class="modal">
+        <div class="modal-overlay" onclick="closeModal('modal-zone')"></div>
+        <div class="modal-content">
+            <div class="bg-orange-50 px-8 py-5 border-b border-orange-100 flex justify-between items-center">
+                <h2 id="zone-modal-title" class="text-xl font-black text-orange-600">สร้างแพ็กเกจโซนใหม่</h2>
+                <button onclick="closeModal('modal-zone')" class="text-orange-400 hover:text-orange-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-zone" class="p-8 space-y-6">
+                <input type="hidden" id="zone-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ชื่อแพ็กเกจ / โซน (เช่น เหมาโซนปาร์ตี้)</label>
+                    <input type="text" id="zone-name" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-orange-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ราคาเหมาพิเศษ (บาท)</label>
+                    <input type="number" id="zone-price" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-orange-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">จับคู่ห้องพักเข้าแพ็กเกจนี้ (เลือกได้หลายห้อง)</label>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div class="grid grid-cols-2 gap-3" id="zone-rooms-selection">
+                            </div>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-orange-500 text-white py-4 rounded-xl font-bold shadow-lg shadow-orange-100 hover:bg-orange-600 transition">บันทึกแพ็กเกจโซน</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-agent" class="modal"><div class="modal-overlay" onclick="closeModal('modal-agent')"></div><div class="modal-content p-8"><h2 id="agent-modal-title" class="text-xl font-bold mb-4">นายหน้า</h2><form id="form-agent" class="space-y-4"><input type="hidden" id="agent-id"><input type="text" id="agent-name" placeholder="ชื่อ" required class="w-full border rounded-xl px-4 py-3"><input type="number" id="agent-com" placeholder="ค่าคอม %" required class="w-full border rounded-xl px-4 py-3"><button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold">บันทึก</button></form></div></div>
+    
+    <div id="modal-item" class="modal"><div class="modal-overlay" onclick="closeModal('modal-item')"></div><div class="modal-content p-8"><h2 id="item-modal-title" class="text-xl font-bold mb-4">สินค้าเสริม</h2><form id="form-item" class="space-y-4"><input type="hidden" id="item-id"><input type="text" id="item-name" placeholder="ชื่อรายการ" required class="w-full border rounded-xl px-4 py-3"><select id="item-category" class="w-full border rounded-xl px-4 py-3"><option value="ของใช้">ของใช้</option><option value="กิจกรรม">กิจกรรม</option></select><input type="number" id="item-price" placeholder="ราคา" required class="w-full border rounded-xl px-4 py-3"><button type="submit" class="w-full bg-emerald-500 text-white py-4 rounded-xl font-bold">บันทึก</button></form></div></div>
+
+    <div id="toast" class="toast"><i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i> <span id="toast-msg">บันทึกสำเร็จ</span></div>
+
+    <script>
+        lucide.createIcons();
+
+        // ----------------------------------------
+        // ระบบ LocalStorage แบบ Many-to-Many
+        // ----------------------------------------
+        let db = {
+            rooms: JSON.parse(localStorage.getItem('ccd_rooms_v2')) || [
+                { id: 101, name: 'โดม 1', price: 1000, hex: '#3b82f6' },
+                { id: 102, name: 'โดม 2', price: 1000, hex: '#3b82f6' },
+                { id: 201, name: 'บ้านส้ม', price: 5000, hex: '#f97316' }
+            ],
+            zones: JSON.parse(localStorage.getItem('ccd_zones_v2')) || [
+                { id: 1, name: 'แพ็กเกจเหมาโดม', price: 1800 }
+            ],
+            // นี่คือตารางจับคู่ที่แท้จริง: 1 ห้องอยู่หลายโซนได้
+            room_zones: JSON.parse(localStorage.getItem('ccd_room_zones_v2')) || [
+                { zone_id: 1, room_id: 101 }, { zone_id: 1, room_id: 102 }
+            ],
+            agents: JSON.parse(localStorage.getItem('ccd_agents_v2')) || [{ id: 1, name: 'เพจหลัก', com: 15 }],
+            items: JSON.parse(localStorage.getItem('ccd_items_v2')) || [{ id: 1, name: 'น้ำแข็ง', category: 'ของใช้', price: 20 }]
+        };
+
+        function saveData() {
+            localStorage.setItem('ccd_rooms_v2', JSON.stringify(db.rooms));
+            localStorage.setItem('ccd_zones_v2', JSON.stringify(db.zones));
+            localStorage.setItem('ccd_room_zones_v2', JSON.stringify(db.room_zones));
+            localStorage.setItem('ccd_agents_v2', JSON.stringify(db.agents));
+            localStorage.setItem('ccd_items_v2', JSON.stringify(db.items));
+        }
+
+        // ----------------------------------------
+        // Renders
+        // ----------------------------------------
+        function renderRooms() {
+            const grid = document.getElementById('rooms-grid');
+            grid.innerHTML = '';
+            db.rooms.forEach(room => {
+                grid.innerHTML += `
+                    <div class="border border-slate-200 rounded-2xl p-5 hover:border-[#1f8ffd] transition bg-white relative shadow-sm">
+                        <div class="absolute top-4 right-4 flex gap-1">
+                            <button onclick="editData('room', ${room.id})" class="text-slate-300 hover:text-[#1f8ffd]"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                            <button onclick="deleteData('room', ${room.id})" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                        <div class="w-10 h-10 rounded-full mb-3 border-2 border-slate-100" style="background-color: ${room.hex}"></div>
+                        <h4 class="font-bold text-lg text-slate-800">${room.name}</h4>
+                        <p class="text-[#1f8ffd] font-black text-xl mt-2">฿${room.price.toLocaleString()}</p>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        function renderZones() {
+            const list = document.getElementById('zones-list');
+            list.innerHTML = '';
+            
+            db.zones.forEach(zone => {
+                // หาว่ามีห้องไหนอยู่ในโซนนี้บ้าง (จากตาราง Many-to-Many)
+                const mappedRoomIds = db.room_zones.filter(rz => rz.zone_id === zone.id).map(rz => rz.room_id);
+                const roomsInZone = db.rooms.filter(r => mappedRoomIds.includes(r.id));
+                let roomBadges = roomsInZone.map(r => `<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold border border-slate-200"><span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color:${r.hex}"></span>${r.name}</span>`).join(' ');
+                
+                if(!roomBadges) roomBadges = '<span class="text-xs text-slate-400 italic">ยังไม่ได้จับคู่ห้องพัก</span>';
+
+                list.innerHTML += `
+                    <div class="border border-slate-200 rounded-2xl p-6 bg-white hover:border-orange-400 transition shadow-sm mb-4">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="font-bold text-xl text-slate-800">${zone.name}</h4>
+                                <p class="text-orange-600 font-black text-lg mt-1">ราคาแพ็กเกจ: ฿${zone.price.toLocaleString()}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="editData('zone', ${zone.id})" class="p-2 text-slate-400 hover:text-orange-500 bg-slate-50 rounded-xl"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                                <button onclick="deleteData('zone', ${zone.id})" class="p-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded-xl"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                            <p class="text-xs font-bold text-slate-400 mb-2">ห้องที่มัดรวมในแพ็กเกจนี้:</p>
+                            <div class="flex flex-wrap gap-2">${roomBadges}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        // Generate Checkboxes สำหรับหน้าต่างจับคู่โซน
+        function populateZoneRoomCheckboxes() {
+            const container = document.getElementById('zone-rooms-selection');
+            container.innerHTML = '';
+            db.rooms.forEach(room => {
+                container.innerHTML += `
+                    <label><input type="checkbox" name="zone-rooms" value="${room.id}" class="room-checkbox">
+                    <div class="room-label"><div class="w-3 h-3 rounded-full" style="background-color:${room.hex}"></div><span class="text-sm font-bold text-slate-700">${room.name}</span></div></label>
+                `;
+            });
+        }
+
+        function renderAgents() { /* โค้ดเดิมย่อไว้ */ const g=document.getElementById('agents-grid');g.innerHTML='';db.agents.forEach(a=>{g.innerHTML+=`<div class="border rounded-2xl p-6 hover:border-[#1f8ffd] relative"><div class="absolute top-4 right-4"><button onclick="deleteData('agent',${a.id})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><h4 class="font-bold text-lg">${a.name}</h4><p class="text-emerald-600 font-black mt-2">${a.com}%</p></div>`;}); lucide.createIcons(); }
+        function renderItems() { /* โค้ดเดิมย่อไว้ */ const b=document.getElementById('items-table-body');b.innerHTML='';db.items.forEach(i=>{b.innerHTML+=`<tr class="border-b"><td class="py-3 px-6">${i.category}</td><td class="py-3 px-6 font-bold">${i.name}</td><td class="py-3 px-6 text-right">${i.price}</td><td class="py-3 px-6 text-center"><button onclick="deleteData('item',${i.id})" class="text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`;}); lucide.createIcons(); }
+
+        // ----------------------------------------
+        // ควบคุมระบบ
+        // ----------------------------------------
+        function switchTab(tab) {
+            document.querySelectorAll('.setting-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('content-' + tab).classList.add('active');
+        }
+
+        function openModal(type) {
+            document.getElementById('form-' + type).reset();
+            document.getElementById(type + '-id').value = '';
+            if(type === 'zone') populateZoneRoomCheckboxes(); // โหลดเช็คบ็อกซ์ใหม่เสมอ
+            document.getElementById('modal-' + type).classList.add('active');
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function showToast(msg) { document.getElementById('toast-msg').innerText = msg; document.getElementById('toast').classList.add('show'); setTimeout(()=>document.getElementById('toast').classList.remove('show'), 3000); }
+
+        function deleteData(type, id) {
+            if(confirm('ยืนยันการลบ?')) {
+                db[type+'s'] = db[type+'s'].filter(item => item.id !== id);
+                // ถ้าลบห้อง ต้องไปลบความสัมพันธ์ใน room_zones ด้วย
+                if(type === 'room') db.room_zones = db.room_zones.filter(rz => rz.room_id !== id);
+                if(type === 'zone') db.room_zones = db.room_zones.filter(rz => rz.zone_id !== id);
+                
+                saveData(); renderRooms(); renderZones(); renderAgents(); renderItems(); showToast('ลบข้อมูลแล้ว');
+            }
+        }
+
+        function editData(type, id) {
+            const data = db[type+'s'].find(i => i.id === id);
+            document.getElementById(type+'-id').value = data.id;
+            
+            if(type === 'room') {
+                document.getElementById('room-name').value = data.name;
+                document.getElementById('room-price').value = data.price;
+                document.getElementById('room-color').value = data.hex;
+            } else if(type === 'zone') {
+                document.getElementById('zone-name').value = data.name;
+                document.getElementById('zone-price').value = data.price;
+                populateZoneRoomCheckboxes();
+                // ติ๊กเช็คบ็อกซ์ห้องที่มีในโซนนี้
+                const mappedRoomIds = db.room_zones.filter(rz => rz.zone_id === id).map(rz => rz.room_id);
+                document.querySelectorAll('input[name="zone-rooms"]').forEach(cb => {
+                    if(mappedRoomIds.includes(parseInt(cb.value))) cb.checked = true;
+                });
+            }
+            document.getElementById('modal-'+type).classList.add('active');
+        }
+
+        // ----------------------------------------
+        // บันทึกฟอร์ม
+        // ----------------------------------------
+        document.getElementById('form-room').addEventListener('submit', e => {
+            e.preventDefault();
+            const id = document.getElementById('room-id').value;
+            const payload = { id: id ? parseInt(id) : Date.now(), name: document.getElementById('room-name').value, price: parseInt(document.getElementById('room-price').value), hex: document.getElementById('room-color').value };
+            if(id) db.rooms[db.rooms.findIndex(r=>r.id===parseInt(id))] = payload; else db.rooms.push(payload);
+            saveData(); renderRooms(); renderZones(); closeModal('modal-room'); showToast('บันทึกห้องสำเร็จ');
+        });
+
+        document.getElementById('form-zone').addEventListener('submit', e => {
+            e.preventDefault();
+            const id = document.getElementById('zone-id').value;
+            const zoneId = id ? parseInt(id) : Date.now();
+            const payload = { id: zoneId, name: document.getElementById('zone-name').value, price: parseInt(document.getElementById('zone-price').value) };
+            
+            if(id) db.zones[db.zones.findIndex(z=>z.id===parseInt(id))] = payload; else db.zones.push(payload);
+            
+            // อัปเดตตาราง Many-to-Many
+            db.room_zones = db.room_zones.filter(rz => rz.zone_id !== zoneId); // ลบของเก่าของโซนนี้ทิ้ง
+            document.querySelectorAll('input[name="zone-rooms"]:checked').forEach(cb => {
+                db.room_zones.push({ zone_id: zoneId, room_id: parseInt(cb.value) }); // ใส่ของใหม่
+            });
+
+            saveData(); renderZones(); closeModal('modal-zone'); showToast('บันทึกแพ็กเกจโซนสำเร็จ');
+        });
+
+        document.getElementById('form-agent').addEventListener('submit', e=>{ e.preventDefault(); const id=document.getElementById('agent-id').value; const pl={id:id?parseInt(id):Date.now(), name:document.getElementById('agent-name').value, com:parseInt(document.getElementById('agent-com').value)}; if(id)db.agents[db.agents.findIndex(a=>a.id===parseInt(id))]=pl; else db.agents.push(pl); saveData(); renderAgents(); closeModal('modal-agent'); showToast('บันทึกสำเร็จ'); });
+        document.getElementById('form-item').addEventListener('submit', e=>{ e.preventDefault(); const id=document.getElementById('item-id').value; const pl={id:id?parseInt(id):Date.now(), name:document.getElementById('item-name').value, category:document.getElementById('item-category').value, price:parseInt(document.getElementById('item-price').value)}; if(id)db.items[db.items.findIndex(i=>i.id===parseInt(id))]=pl; else db.items.push(pl); saveData(); renderItems(); closeModal('modal-item'); showToast('บันทึกสำเร็จ'); });
+
+        renderRooms(); renderZones(); renderAgents(); renderItems();
+    </script>
+</body>
+</html>
