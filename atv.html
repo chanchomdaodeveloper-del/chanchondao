@@ -3,44 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ชานชมดาว - ระบบรายได้ ATV 50/50</title>
+    <title>ชานชมดาว - ระบบบัญชี ATV (A4 Report & 50/50 Split)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
-        
-        /* Layout */
-        .sidebar { height: 100vh; position: fixed; left: 0; top: 0; width: 260px; background: white; border-right: 1px solid #f1f5f9; z-index: 40; }
-        .main-content { margin-left: 260px; min-height: 100vh; padding: 2rem; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #64748b; font-weight: 500; border-radius: 12px; transition: all 0.2s; margin-bottom: 8px; }
-        .nav-item:hover, .nav-item.active { background: #fff7ed; color: #f97316; } 
-        .nav-item.active { font-weight: 600; }
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
 
-        /* Cards */
-        .stat-card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 24px; transition: transform 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 20px -8px rgba(0,0,0,0.08); }
+        body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
+        .sidebar { height: 100vh; position: fixed; left: 0; top: 0; width: 260px; background: white; border-right: 1px solid #f1f5f9; z-index: 50; transform: translateX(-100%); transition: transform 0.3s ease; }
+        .sidebar.open { transform: translateX(0); }
+        .mobile-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .mobile-overlay.open { opacity: 1; pointer-events: auto; }
+        .main-content { min-height: 100vh; padding: 1rem; transition: margin 0.3s ease; width: 100%; }
+        @media (min-width: 1024px) { .sidebar { transform: translateX(0); } .main-content { margin-left: 260px; width: calc(100% - 260px); padding: 2rem; } .mobile-overlay { display: none !important; } }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #64748b; font-weight: 500; border-radius: 12px; transition: all 0.2s; margin-bottom: 8px; }
+        .nav-item:hover, .nav-item.active { background: #eff6ff; color: #1f8ffd; }
+        .nav-item.active { font-weight: 600; }
         
-        /* A4 Size Report Wrapper (Hidden on normal view, used for export) */
-        .a4-wrapper { width: 794px; min-height: 1123px; background: white; padding: 40px; color: #0f172a; position: relative; margin: 0 auto; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        .stat-card { background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         
-        /* Modals */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-        .modal-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -45%) scale(0.95); z-index: 60; opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 95%; max-width: 850px; max-height: 95vh; overflow-y: auto; border-radius: 16px; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 60; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -45%) scale(0.95); background: white; z-index: 70; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 95%; max-width: 500px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
         .modal.active .modal-overlay, .modal.active .modal-content { opacity: 1; pointer-events: auto; }
         .modal.active .modal-content { transform: translate(-50%, -50%) scale(1); }
 
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .type-radio { display: none; }
+        .type-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: #f8fafc; font-weight: bold; color: #64748b; }
+        #type-income:checked + .type-label { border-color: #10b981; background: #ecfdf5; color: #10b981; box-shadow: 0 0 0 1px #10b981; }
+        #type-expense:checked + .type-label { border-color: #ef4444; background: #fef2f2; color: #ef4444; box-shadow: 0 0 0 1px #ef4444; }
+
+        /* 📄 กระดาษ A4 สำหรับแคปรูปส่งรายงาน */
+        #a4-render-area { 
+            position: absolute; top: -9999px; left: -9999px; 
+            width: 210mm; min-height: 297mm; 
+            background: white; padding: 20mm; 
+            font-family: 'Sarabun', sans-serif; color: #1e293b; 
+            box-sizing: border-box; 
+        }
+        .a4-title { font-size: 28pt; font-weight: bold; text-align: center; color: #0f172a; margin-bottom: 5px; line-height: 1; }
+        .a4-subtitle { font-size: 16pt; text-align: center; color: #64748b; margin-bottom: 30px; }
+        
+        .a4-summary-box { display: flex; justify-content: space-between; margin-bottom: 30px; border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+        .a4-sum-col { flex: 1; padding: 15px; text-align: center; border-right: 1px solid #e2e8f0; }
+        .a4-sum-col:last-child { border-right: none; }
+        .a4-sum-label { font-size: 14pt; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        .a4-sum-val { font-size: 22pt; font-weight: bold; color: #0f172a; }
+
+        .a4-split-box { background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 12px; padding: 20px; margin-bottom: 30px; }
+        .a4-split-title { font-size: 18pt; font-weight: bold; text-align: center; margin-bottom: 15px; color: #334155; border-bottom: 2px dashed #cbd5e1; padding-bottom: 10px; }
+        .a4-split-row { display: flex; justify-content: space-between; font-size: 20pt; font-weight: bold; margin-bottom: 10px; }
+
+        .a4-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .a4-table th, .a4-table td { border: 1px solid #cbd5e1; padding: 10px; font-size: 14pt; }
+        .a4-table th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
+
+        .toast { position: fixed; bottom: 20px; right: 20px; left: 20px; background: #0f172a; color: white; padding: 16px 24px; border-radius: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 12px; transform: translateY(100px); opacity: 0; transition: all 0.4s; z-index: 100; text-align: center; }
+        @media (min-width: 768px) { .toast { left: auto; justify-content: flex-start; } }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        #cloud-loading { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.3s; }
+        .spinner { border: 4px solid rgba(31,143,253,0.2); width: 40px; height: 40px; border-radius: 50%; border-left-color: #1f8ffd; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <aside class="sidebar p-6 flex flex-col">
-        <div class="flex items-center gap-3 mb-10 px-2">
-            <div class="bg-[#f97316] p-2 rounded-xl text-white shadow-md"><i data-lucide="moon-star" class="w-6 h-6"></i></div>
-            <h1 class="text-xl font-bold text-slate-800">ชานชมดาว</h1>
+    <div id="cloud-loading"><div class="flex flex-col items-center"><div class="spinner mb-4"></div><p class="font-bold text-slate-600 flex items-center gap-2"><i data-lucide="cloud-download" class="w-5 h-5"></i> กำลังโหลดข้อมูลบัญชี ATV...</p></div></div>
+    <div id="mobile-overlay" class="mobile-overlay" onclick="toggleSidebar()"></div>
+
+    <aside id="sidebar" class="sidebar p-6 flex flex-col">
+        <div class="flex items-center justify-between mb-10 px-2">
+            <div class="flex items-center gap-3"><div class="bg-[#1f8ffd] p-2 rounded-xl text-white shadow-lg"><i data-lucide="moon-star" class="w-6 h-6"></i></div><h1 class="text-xl font-bold text-slate-800">ชานชมดาว</h1></div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 bg-slate-50 p-2 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
         </div>
         <nav class="flex-1 space-y-1">
             <a href="index.html" class="nav-item"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> ภาพรวม</a>
@@ -48,387 +85,411 @@
             <a href="atv.html" class="nav-item active"><i data-lucide="car-front" class="w-5 h-5"></i> ระบบบัญชี ATV</a>
             <a href="billing.html" class="nav-item"><i data-lucide="receipt" class="w-5 h-5"></i> จัดการบิล / ของใช้</a>
         </nav>
+        <div class="border-t border-slate-100 pt-6 mt-6"><a href="settings.html" class="nav-item"><i data-lucide="settings" class="w-5 h-5"></i> ตั้งค่าระบบ</a></div>
     </aside>
 
     <main class="main-content">
-        <header class="mb-8 flex justify-between items-end">
-            <div>
-                <h2 class="text-3xl font-black text-slate-800 mb-2 tracking-tight">ระบบบัญชี ATV (ส่วนแบ่ง 50/50)</h2>
-                <p class="text-slate-500 font-medium">บันทึกยอดวิ่งรายวัน หักค่าใช้จ่าย และคำนวณยอดโอนหุ้นส่วนอัตโนมัติ</p>
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8 bg-white p-4 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-100 shadow-sm">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="lg:hidden bg-slate-50 border p-2 rounded-lg"><i data-lucide="menu" class="w-5 h-5"></i></button>
+                <div>
+                    <h2 class="text-xl lg:text-2xl font-black text-slate-800 tracking-tight">ระบบบัญชี ATV</h2>
+                    <p class="text-sm text-slate-500 font-medium">คำนวณกำไรสุทธิ และแบ่งส่วน 50/50</p>
+                </div>
             </div>
-            <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                <i data-lucide="calendar" class="w-5 h-5 text-slate-400"></i>
-                <input type="date" id="filter-date" class="font-bold text-slate-700 outline-none cursor-pointer bg-transparent" onchange="renderAll()">
+            
+            <div class="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto bg-slate-50 p-2 rounded-xl border border-slate-200">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <span class="text-xs font-bold text-slate-400 uppercase ml-2">ตั้งแต่</span>
+                    <input type="date" id="filter-start" class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none flex-1" onchange="fetchAtvData()">
+                </div>
+                <i data-lucide="arrow-right" class="w-4 h-4 text-slate-300 hidden sm:block"></i>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <span class="text-xs font-bold text-slate-400 uppercase ml-2">ถึง</span>
+                    <input type="date" id="filter-end" class="border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold outline-none flex-1" onchange="fetchAtvData()">
+                </div>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="stat-card md:col-span-1 border-t-4 border-t-slate-800 bg-white">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2"><i data-lucide="wallet" class="w-4 h-4"></i> ยอดรับสุทธิรวม (Gross)</p>
-                <h3 id="stat-revenue" class="text-3xl font-black text-slate-800">฿0</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="stat-card border-l-4 border-emerald-500">
+                <p class="text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">รายรับทั้งหมด (ยอดรถ)</p>
+                <h3 class="text-3xl font-black text-slate-800" id="stat-income">฿0</h3>
             </div>
-            <div class="stat-card md:col-span-1 border-t-4 border-t-red-500 bg-red-50/30">
-                <p class="text-xs font-bold text-red-500 uppercase tracking-wider mb-2 flex items-center gap-2"><i data-lucide="trending-down" class="w-4 h-4"></i> หักรายจ่ายวันนี้ (Expense)</p>
-                <h3 id="stat-expense" class="text-3xl font-black text-red-600">-฿0</h3>
+            <div class="stat-card border-l-4 border-red-500">
+                <p class="text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">หักรายจ่าย (น้ำมัน/ซ่อม)</p>
+                <h3 class="text-3xl font-black text-red-500" id="stat-expense">฿0</h3>
             </div>
-            <div class="stat-card md:col-span-1 border-t-4 border-t-[#1f8ffd] bg-blue-50/30">
-                <p class="text-xs font-bold text-[#1f8ffd] uppercase tracking-wider mb-2 flex items-center gap-2"><i data-lucide="user" class="w-4 h-4"></i> ส่วนของอาบอย (50%)</p>
-                <h3 id="stat-boy" class="text-3xl font-black text-[#1f8ffd]">฿0</h3>
-            </div>
-            <div class="stat-card md:col-span-1 border-t-4 border-t-emerald-500 bg-emerald-50/30">
-                <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2 flex items-center gap-2"><i data-lucide="building" class="w-4 h-4"></i> ส่งยอดหุ้นส่วน (50%)</p>
-                <h3 id="stat-partner" class="text-3xl font-black text-emerald-600">฿0</h3>
+            <div class="stat-card border-l-4 border-[#1f8ffd] bg-blue-50/30">
+                <p class="text-xs font-bold text-[#1f8ffd] mb-1 uppercase tracking-widest">กำไรสุทธิ (พร้อมแบ่ง)</p>
+                <h3 class="text-3xl font-black text-[#1f8ffd]" id="stat-profit">฿0</h3>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
-            <div class="xl:col-span-4 space-y-6">
-                
-                <div class="bg-white rounded-[24px] p-6 border border-slate-200 shadow-sm">
-                    <h3 class="text-lg font-black text-slate-800 mb-5 flex items-center gap-2"><i data-lucide="zap" class="w-5 h-5 text-[#1f8ffd]"></i> ลงยอดรอบวิ่ง</h3>
-                    <form id="form-ride" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">เวลา</label>
-                                <input type="time" id="ride-time" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] bg-slate-50 font-medium">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">จำนวน (ท่าน)</label>
-                                <input type="number" id="ride-pax" min="1" value="1" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] font-bold text-lg" oninput="autoCalculateNet()">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">ลูกค้ามาจากใคร (ใส่ชื่อเพื่อบันทึก)</label>
-                            <input type="text" id="ride-source" placeholder="เช่น Walk-in, คุณเอ, บ้านส้ม" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd]">
-                        </div>
-                        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                            <label class="block text-xs font-bold text-[#1f8ffd] uppercase mb-2">ยอดรับสุทธิที่เก็บมา (บาท)</label>
-                            <input type="number" id="ride-net" required class="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] font-black text-xl text-[#1f8ffd]" placeholder="เช่น 150">
-                        </div>
-                        <button type="submit" class="w-full bg-[#1f8ffd] text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-blue-600 transition flex justify-center items-center gap-2">
-                            <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มยอดรับ
-                        </button>
-                    </form>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-6 flex justify-between items-center shadow-sm">
+                <div>
+                    <p class="text-sm font-bold text-indigo-500 mb-1">ส่วนแบ่ง อาบอย (50%)</p>
+                    <h3 class="text-4xl font-black text-indigo-700" id="stat-arboy">฿0</h3>
                 </div>
+                <div class="bg-white p-3 rounded-xl shadow-sm text-indigo-500"><i data-lucide="user" class="w-8 h-8"></i></div>
+            </div>
+            <div class="bg-fuchsia-50 border border-fuchsia-200 rounded-2xl p-6 flex justify-between items-center shadow-sm">
+                <div>
+                    <p class="text-sm font-bold text-fuchsia-500 mb-1">ส่วนแบ่ง นุ้ย (50%)</p>
+                    <h3 class="text-4xl font-black text-fuchsia-700" id="stat-nui">฿0</h3>
+                </div>
+                <div class="bg-white p-3 rounded-xl shadow-sm text-fuchsia-500"><i data-lucide="user" class="w-8 h-8"></i></div>
+            </div>
+        </div>
 
-                <div class="bg-white rounded-[24px] p-6 border border-slate-200 shadow-sm border-t-4 border-t-red-500">
-                    <h3 class="text-lg font-black text-slate-800 mb-5 flex items-center gap-2"><i data-lucide="minus-circle" class="w-5 h-5 text-red-500"></i> ลงรายจ่ายประจำวัน</h3>
-                    <form id="form-expense" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">รายการค่าใช้จ่าย</label>
-                            <input type="text" id="exp-name" placeholder="เช่น ค่าน้ำมัน, ค่าซ่อมรถ" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-red-400">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-red-500 uppercase mb-2">จำนวนเงิน (บาท)</label>
-                            <input type="number" id="exp-amount" min="1" required class="w-full border border-red-200 rounded-xl px-4 py-3 outline-none focus:border-red-400 font-bold text-lg text-red-600 bg-red-50">
-                        </div>
-                        <button type="submit" class="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold hover:bg-slate-800 transition flex justify-center items-center gap-2">
-                            <i data-lucide="check" class="w-4 h-4"></i> บันทึกรายจ่าย
-                        </button>
-                    </form>
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h3 class="text-lg font-black text-slate-800">รายการบันทึกบัญชี</h3>
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button onclick="generateReport()" class="flex-1 sm:flex-none bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold hover:bg-slate-50 transition flex justify-center items-center gap-2"><i data-lucide="printer" class="w-4 h-4"></i> พิมพ์รายงาน A4</button>
+                    <button onclick="openModal()" class="flex-1 sm:flex-none bg-[#1f8ffd] text-white px-4 py-2.5 rounded-xl font-bold hover:bg-blue-600 transition shadow-md flex justify-center items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> ลงบัญชี</button>
                 </div>
             </div>
-
-            <div class="xl:col-span-8 space-y-6">
-                <div class="bg-white rounded-[24px] p-8 border border-slate-200 shadow-sm">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-black text-slate-800">ตารางรอบวิ่ง (รายรับ)</h3>
-                        <button onclick="openA4Modal()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition shadow-md">
-                            <i data-lucide="file-text" class="w-4 h-4"></i> พรีวิวสรุปยอด A4
-                        </button>
-                    </div>
-                    <div class="border border-slate-200 rounded-2xl overflow-hidden mb-6">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-bold tracking-wider">
-                                <tr>
-                                    <th class="py-3 px-6">เวลา</th>
-                                    <th class="py-3 px-6">แหล่งที่มา</th>
-                                    <th class="py-3 px-6 text-center">จำนวน (ท่าน)</th>
-                                    <th class="py-3 px-6 text-right">ยอดรับสุทธิ (฿)</th>
-                                    <th class="py-3 px-6 text-center w-16">ลบ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rides-table"></tbody>
-                        </table>
-                    </div>
-
-                    <h3 class="text-xl font-black text-slate-800 mb-4 mt-8">ตารางค่าใช้จ่าย</h3>
-                    <div class="border border-red-100 rounded-2xl overflow-hidden">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-red-50 text-red-500 text-xs uppercase font-bold tracking-wider">
-                                <tr>
-                                    <th class="py-3 px-6">รายการค่าใช้จ่าย</th>
-                                    <th class="py-3 px-6 text-right">ยอดเงิน (฿)</th>
-                                    <th class="py-3 px-6 text-center w-16">ลบ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="expenses-table"></tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead class="bg-slate-50 text-xs uppercase font-bold text-slate-400">
+                        <tr>
+                            <th class="py-4 px-6">วัน - เวลา</th>
+                            <th class="py-4 px-6">ประเภท</th>
+                            <th class="py-4 px-6">รายละเอียด</th>
+                            <th class="py-4 px-6">ผู้ทำรายการ</th>
+                            <th class="py-4 px-6 text-right">จำนวนเงิน (฿)</th>
+                            <th class="py-4 px-6 text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-list" class="divide-y divide-slate-100"></tbody>
+                </table>
             </div>
         </div>
     </main>
 
-    <div id="modal-a4" class="modal">
-        <div class="modal-overlay" onclick="closeModal('modal-a4')"></div>
-        <div class="modal-content bg-slate-100 p-8 flex flex-col items-center">
-            
-            <div class="w-full flex justify-between items-center mb-6 max-w-[794px]">
-                <h2 class="text-2xl font-black text-slate-800">พรีวิวใบสรุปยอดประจำวัน</h2>
-                <div class="flex gap-3">
-                    <button onclick="closeModal('modal-a4')" class="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-xl font-bold hover:bg-slate-50 transition">ปิด</button>
-                    <button onclick="downloadA4()" class="bg-emerald-500 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-600 transition shadow-md">
-                        <i data-lucide="download" class="w-4 h-4"></i> ดาวน์โหลด PNG
-                    </button>
-                </div>
+    <div id="add-modal" class="modal">
+        <div class="modal-overlay" onclick="closeModal('add-modal')"></div>
+        <div class="modal-content">
+            <div class="bg-white px-6 py-5 border-b border-slate-100 flex justify-between items-center rounded-t-[24px]">
+                <h2 class="text-lg font-black text-slate-800 flex items-center gap-2"><i data-lucide="file-plus" class="w-5 h-5 text-[#1f8ffd]"></i> ลงบันทึกบัญชี ATV</h2>
+                <button onclick="closeModal('add-modal')" class="text-slate-400 hover:text-slate-800 bg-slate-50 p-1.5 rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
-
-            <div id="a4-report-container" class="a4-wrapper">
-                <div class="text-center border-b-2 border-slate-800 pb-6 mb-8">
-                    <h1 class="text-3xl font-black tracking-tight mb-2">รายงานสรุปบัญชี ATV (ชานชมดาว)</h1>
-                    <p class="text-lg font-medium text-slate-600">ประจำวันที่: <span id="a4-date" class="font-bold text-slate-800">--</span></p>
+            <form id="transaction-form" class="p-6 space-y-5">
+                <div class="grid grid-cols-2 gap-3">
+                    <label>
+                        <input type="radio" name="t-type" id="type-income" value="income" class="type-radio" checked onchange="toggleFormFields()">
+                        <div class="type-label"><i data-lucide="arrow-down-circle" class="w-4 h-4"></i> รายรับ (เช่ารถ)</div>
+                    </label>
+                    <label>
+                        <input type="radio" name="t-type" id="type-expense" value="expense" class="type-radio" onchange="toggleFormFields()">
+                        <div class="type-label"><i data-lucide="arrow-up-circle" class="w-4 h-4"></i> รายจ่าย (น้ำมัน/ซ่อม)</div>
+                    </label>
                 </div>
-
-                <div class="grid grid-cols-2 gap-8 mb-8">
+                
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <h3 class="text-lg font-bold text-slate-800 border-l-4 border-slate-800 pl-3 mb-4">1. รายละเอียดรอบวิ่ง</h3>
-                        <table class="w-full text-sm border border-slate-200">
-                            <thead class="bg-slate-100 font-bold">
-                                <tr>
-                                    <th class="p-2 border-b border-slate-200">เวลา</th>
-                                    <th class="p-2 border-b border-slate-200">ที่มา</th>
-                                    <th class="p-2 border-b border-slate-200 text-center">คน</th>
-                                    <th class="p-2 border-b border-slate-200 text-right">ยอดรับ</th>
-                                </tr>
-                            </thead>
-                            <tbody id="a4-rides-body"></tbody>
-                        </table>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">วันที่</label>
+                        <input type="date" id="t-date" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-sm font-bold">
                     </div>
                     <div>
-                        <h3 class="text-lg font-bold text-slate-800 border-l-4 border-red-500 pl-3 mb-4">2. รายจ่ายประจำวัน</h3>
-                        <table class="w-full text-sm border border-red-100">
-                            <thead class="bg-red-50 font-bold text-red-600">
-                                <tr>
-                                    <th class="p-2 border-b border-red-100">รายการ</th>
-                                    <th class="p-2 border-b border-red-100 text-right">ยอดเงิน</th>
-                                </tr>
-                            </thead>
-                            <tbody id="a4-expenses-body"></tbody>
-                        </table>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">เวลา</label>
+                        <input type="time" id="t-time" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-sm font-bold">
                     </div>
                 </div>
 
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6">
-                    <h3 class="text-xl font-black text-center mb-6">สรุปผลประกอบการ (Profit Calculation)</h3>
-                    <div class="space-y-3 max-w-md mx-auto text-lg">
-                        <div class="flex justify-between border-b border-slate-200 pb-2">
-                            <span class="text-slate-600">ยอดรับสุทธิรวมทั้งหมด</span>
-                            <span id="a4-total-rev" class="font-bold">฿0</span>
+                <div id="income-fields" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">จำนวนคน (คัน)</label>
+                            <input type="number" id="t-pax" class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-sm font-bold text-slate-800" placeholder="เช่น 2">
                         </div>
-                        <div class="flex justify-between border-b border-slate-200 pb-2 text-red-500">
-                            <span>หักรายจ่ายรวม</span>
-                            <span id="a4-total-exp" class="font-bold">-฿0</span>
-                        </div>
-                        <div class="flex justify-between pt-2 pb-4 border-b-2 border-slate-800">
-                            <span class="font-bold text-slate-800">ยอดเงินคงเหลือ (เพื่อแบ่งจัดสรร)</span>
-                            <span id="a4-net" class="font-black text-2xl text-slate-800">฿0</span>
-                        </div>
-                        <div class="flex justify-between pt-4 text-emerald-600">
-                            <span class="font-bold">ส่วนของอาบอย (50%)</span>
-                            <span id="a4-share-boy" class="font-black text-xl">฿0</span>
-                        </div>
-                        <div class="flex justify-between pt-2 text-emerald-600">
-                            <span class="font-bold">ยอดโอนให้หุ้นส่วน (50%)</span>
-                            <span id="a4-share-partner" class="font-black text-xl">฿0</span>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1">คนส่งลูกค้า / รับเอง</label>
+                            <input type="text" id="t-referrer" class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-sm font-bold text-slate-800" placeholder="เช่น รับเอง">
                         </div>
                     </div>
                 </div>
 
-                <div class="absolute bottom-10 left-0 w-full text-center text-sm text-slate-400">
-                    <p>ระบบจัดการบัญชีอัจฉริยะ - ชานชมดาว โฮมสเตย์</p>
+                <div id="expense-fields" class="hidden">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">รายละเอียดการจ่ายเงิน</label>
+                    <input type="text" id="t-desc-expense" class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-red-500 text-sm font-bold text-slate-800" placeholder="เช่น ซื้อน้ำมัน 1 แกลลอน, ปะยาง">
                 </div>
-            </div>
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <label class="block text-xs font-bold text-slate-500 mb-1">จำนวนเงิน (บาท)</label>
+                    <input type="number" id="t-amount" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-2xl font-black text-[#1f8ffd] bg-white" placeholder="0">
+                </div>
+
+                <button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-md hover:bg-slate-800 transition text-lg mt-2">บันทึกข้อมูลลงระบบ</button>
+            </form>
         </div>
     </div>
 
+    <div id="a4-render-area">
+        <h1 class="a4-title">รายงานสรุปบัญชี ATV ชานชมดาว โฮมสเตย์</h1>
+        <p class="a4-subtitle" id="a4-date-range">ประจำวันที่ ...</p>
+
+        <div class="a4-summary-box">
+            <div class="a4-sum-col">
+                <div class="a4-sum-label">รายรับทั้งหมด (ยอดรถ)</div>
+                <div class="a4-sum-val" style="color: #10b981;" id="a4-income">0</div>
+            </div>
+            <div class="a4-sum-col">
+                <div class="a4-sum-label">หักรายจ่ายทั้งหมด</div>
+                <div class="a4-sum-val" style="color: #ef4444;" id="a4-expense">0</div>
+            </div>
+            <div class="a4-sum-col" style="background-color: #f8fafc;">
+                <div class="a4-sum-label" style="color: #1f8ffd;">กำไรสุทธิ</div>
+                <div class="a4-sum-val" style="color: #1f8ffd;" id="a4-profit">0</div>
+            </div>
+        </div>
+
+        <div class="a4-split-box">
+            <div class="a4-split-title">สรุปยอดแบ่งผลกำไร (50 / 50)</div>
+            <div class="a4-split-row">
+                <span style="color: #4f46e5;">ส่วนแบ่ง อาบอย</span>
+                <span style="color: #4f46e5;" id="a4-arboy">0</span>
+            </div>
+            <div class="a4-split-row">
+                <span style="color: #c026d3;">ส่วนแบ่ง นุ้ย</span>
+                <span style="color: #c026d3;" id="a4-nui">0</span>
+            </div>
+        </div>
+
+        <h3 style="font-size: 16pt; font-weight: bold; margin-bottom: 10px;">รายละเอียดรายการเคลื่อนไหว</h3>
+        <table class="a4-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">วันที่</th>
+                    <th style="width: 15%;">ประเภท</th>
+                    <th style="width: 50%;">รายละเอียด</th>
+                    <th style="width: 20%;">จำนวนเงิน (฿)</th>
+                </tr>
+            </thead>
+            <tbody id="a4-transactions">
+                </tbody>
+        </table>
+
+        <div style="text-align: right; font-size: 12pt; color: #64748b; margin-top: 20px;">
+            พิมพ์รายงานเมื่อ: <span id="a4-print-time"></span>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"><i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i> <span id="toast-msg">สำเร็จ</span></div>
+
     <script>
         lucide.createIcons();
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('mobile-overlay').classList.toggle('open'); }
+        function setElText(id, text) { const el = document.getElementById(id); if(el) el.innerText = text; }
+        function showToast(msg) { const t = document.getElementById('toast'); document.getElementById('toast-msg').innerText = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3000); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-        // Database
-        let atvData = JSON.parse(localStorage.getItem('ccd_atv_data_v3')) || {
-            rides: [],
-            expenses: []
-        };
+        const sb = supabase.createClient('https://derxnhwfecvwpqaeufly.supabase.co', 'sb_publishable_qmrZBAxD8KbN3hTPrF-xOA_oxbkYep6');
+        let atvData = [];
 
-        // Initialize
-        function initPage() {
-            const today = new Date();
-            const localDate = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-            document.getElementById('filter-date').value = localDate;
-            
-            const now = new Date();
-            const timeString = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-            document.getElementById('ride-time').value = timeString;
-
-            renderAll();
+        function initDateRange() {
+            const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+            const todayStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
+            const firstDayStr = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-01";
+            document.getElementById('filter-start').value = firstDayStr;
+            document.getElementById('filter-end').value = todayStr;
         }
 
-        // Auto fill price suggestion (150 per pax)
-        function autoCalculateNet() {
-            const pax = parseInt(document.getElementById('ride-pax').value) || 0;
-            document.getElementById('ride-net').value = pax * 150;
-        }
-
-        function saveData() {
-            localStorage.setItem('ccd_atv_data_v3', JSON.stringify(atvData));
-            renderAll();
-        }
-
-        // Forms Submissions
-        document.getElementById('form-ride').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const dateStr = document.getElementById('filter-date').value;
-            const payload = {
-                id: Date.now(),
-                date: dateStr,
-                time: document.getElementById('ride-time').value,
-                pax: parseInt(document.getElementById('ride-pax').value),
-                source: document.getElementById('ride-source').value,
-                net: parseInt(document.getElementById('ride-net').value)
-            };
-            atvData.rides.push(payload);
-            
-            // Reset some fields
-            document.getElementById('ride-pax').value = 1;
-            document.getElementById('ride-source').value = '';
-            document.getElementById('ride-net').value = '';
-            saveData();
-        });
-
-        document.getElementById('form-expense').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const dateStr = document.getElementById('filter-date').value;
-            const payload = {
-                id: Date.now(),
-                date: dateStr,
-                name: document.getElementById('exp-name').value,
-                amount: parseInt(document.getElementById('exp-amount').value)
-            };
-            atvData.expenses.push(payload);
-            
-            document.getElementById('exp-name').value = '';
-            document.getElementById('exp-amount').value = '';
-            saveData();
-        });
-
-        function deleteRecord(type, id) {
-            if(confirm('ยืนยันการลบข้อมูล?')) {
-                atvData[type] = atvData[type].filter(item => item.id !== id);
-                saveData();
+        function toggleFormFields() {
+            const isIncome = document.getElementById('type-income').checked;
+            const tAmount = document.getElementById('t-amount');
+            if(isIncome) {
+                document.getElementById('income-fields').classList.remove('hidden');
+                document.getElementById('expense-fields').classList.add('hidden');
+                tAmount.classList.remove('text-red-500'); tAmount.classList.add('text-[#1f8ffd]');
+                document.getElementById('t-pax').required = true;
+                document.getElementById('t-referrer').required = true;
+                document.getElementById('t-desc-expense').required = false;
+            } else {
+                document.getElementById('income-fields').classList.add('hidden');
+                document.getElementById('expense-fields').classList.remove('hidden');
+                tAmount.classList.remove('text-[#1f8ffd]'); tAmount.classList.add('text-red-500');
+                document.getElementById('t-pax').required = false;
+                document.getElementById('t-referrer').required = false;
+                document.getElementById('t-desc-expense').required = true;
             }
         }
 
-        // Render Tables & Dashboard
-        function renderAll() {
-            const filterDate = document.getElementById('filter-date').value;
+        async function fetchAtvData() {
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+            if(!start || !end) return;
+
+            document.getElementById('cloud-loading').style.display = 'flex';
+            try {
+                const { data, error } = await sb.from('atv_transactions')
+                                        .select('*')
+                                        .gte('transaction_date', start)
+                                        .lte('transaction_date', end)
+                                        .order('transaction_date', { ascending: false })
+                                        .order('action_time', { ascending: false });
+                
+                if (error) throw error;
+                atvData = data || [];
+                renderAtvData();
+            } catch (error) { alert("เกิดข้อผิดพลาดในการโหลดข้อมูล"); }
+            document.getElementById('cloud-loading').style.display = 'none';
+        }
+
+        function renderAtvData() {
+            const tbody = document.getElementById('transaction-list');
+            tbody.innerHTML = '';
+            let totalIncome = 0; let totalExpense = 0;
+
+            if (atvData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400 font-bold">ไม่มีรายการเคลื่อนไหวในช่วงเวลานี้</td></tr>';
+            } else {
+                atvData.forEach(item => {
+                    const isIncome = item.transaction_type === 'income';
+                    const amount = parseFloat(item.amount);
+                    if (isIncome) totalIncome += amount; else totalExpense += amount;
+
+                    const dateObj = new Date(item.transaction_date);
+                    const dateStr = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()+543}`;
+                    const timeStr = item.action_time ? item.action_time.substring(0, 5) : '-';
+                    
+                    const typeBadge = isIncome 
+                        ? `<span class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[10px] font-bold border border-emerald-100">รายรับ</span>` 
+                        : `<span class="bg-red-50 text-red-500 px-2 py-1 rounded-md text-[10px] font-bold border border-red-100">รายจ่าย</span>`;
+                    
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-50">
+                            <td class="py-4 px-6 text-sm font-bold text-slate-600"><span class="block">${dateStr}</span><span class="text-[10px] text-slate-400">${timeStr} น.</span></td>
+                            <td class="py-4 px-6">${typeBadge}</td>
+                            <td class="py-4 px-6"><p class="text-sm font-bold text-slate-800">${item.description}</p></td>
+                            <td class="py-4 px-6 text-sm text-slate-500">${item.staff_name || '-'}</td>
+                            <td class="py-4 px-6 text-right font-black ${isIncome ? 'text-emerald-600' : 'text-red-500'}">${isIncome ? '+' : '-'}฿${amount.toLocaleString()}</td>
+                            <td class="py-4 px-6 text-center"><button onclick="deleteData(${item.id})" class="text-slate-300 hover:text-red-500 p-1 transition"><i data-lucide="trash-2" class="w-4 h-4 inline"></i></button></td>
+                        </tr>`;
+                });
+            }
+
+            // คณิตศาสตร์ที่ถูกต้อง: (รับ - จ่าย) / 2
+            const netProfit = totalIncome - totalExpense;
+            const splitAmount = netProfit / 2;
+
+            setElText('stat-income', `฿${totalIncome.toLocaleString()}`);
+            setElText('stat-expense', `฿${totalExpense.toLocaleString()}`);
+            setElText('stat-profit', `฿${netProfit.toLocaleString()}`);
             
-            // Filter
-            const dayRides = atvData.rides.filter(r => r.date === filterDate).sort((a,b) => a.time.localeCompare(b.time));
-            const dayExpenses = atvData.expenses.filter(e => e.date === filterDate);
-
-            // Math
-            const totalRev = dayRides.reduce((sum, r) => sum + r.net, 0);
-            const totalExp = dayExpenses.reduce((sum, e) => sum + e.amount, 0);
-            const netBalance = totalRev - totalExp;
-            const share = netBalance > 0 ? netBalance / 2 : 0; // ป้องกันติดลบแล้วโอน
-
-            // Update Dashboard
-            document.getElementById('stat-revenue').innerText = `฿${totalRev.toLocaleString()}`;
-            document.getElementById('stat-expense').innerText = `-฿${totalExp.toLocaleString()}`;
-            document.getElementById('stat-boy').innerText = `฿${share.toLocaleString()}`;
-            document.getElementById('stat-partner').innerText = `฿${share.toLocaleString()}`;
-
-            // Render Ride Table
-            const tbodyRides = document.getElementById('rides-table');
-            tbodyRides.innerHTML = '';
-            if(dayRides.length === 0) tbodyRides.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-slate-400">ไม่มีข้อมูล</td></tr>';
-            dayRides.forEach(r => {
-                tbodyRides.innerHTML += `
-                    <tr class="border-b border-slate-100 hover:bg-slate-50">
-                        <td class="py-3 px-6 font-bold text-slate-600">${r.time}</td>
-                        <td class="py-3 px-6">${r.source}</td>
-                        <td class="py-3 px-6 text-center font-bold">${r.pax}</td>
-                        <td class="py-3 px-6 text-right font-bold text-[#1f8ffd]">฿${r.net.toLocaleString()}</td>
-                        <td class="py-3 px-6 text-center"><button onclick="deleteRecord('rides', ${r.id})" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
-                    </tr>
-                `;
-            });
-
-            // Render Expense Table
-            const tbodyExp = document.getElementById('expenses-table');
-            tbodyExp.innerHTML = '';
-            if(dayExpenses.length === 0) tbodyExp.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-slate-400">ไม่มีข้อมูล</td></tr>';
-            dayExpenses.forEach(e => {
-                tbodyExp.innerHTML += `
-                    <tr class="border-b border-red-50 hover:bg-red-50/50">
-                        <td class="py-3 px-6 font-bold text-slate-700">${e.name}</td>
-                        <td class="py-3 px-6 text-right font-bold text-red-500">-฿${e.amount.toLocaleString()}</td>
-                        <td class="py-3 px-6 text-center"><button onclick="deleteRecord('expenses', ${e.id})" class="text-red-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
-                    </tr>
-                `;
-            });
-
+            setElText('stat-arboy', `฿${splitAmount.toLocaleString()}`);
+            setElText('stat-nui', `฿${splitAmount.toLocaleString()}`);
+            
             lucide.createIcons();
-            prepareA4Data(filterDate, dayRides, dayExpenses, totalRev, totalExp, netBalance, share);
         }
 
-        // เตรียมข้อมูลยัดลงกระดาษ A4
-        function prepareA4Data(dateStr, rides, expenses, rev, exp, net, share) {
-            // แปลงวันที่ไทย
-            const dParts = dateStr.split('-');
-            const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-            const thaiDate = `${parseInt(dParts[2])} ${thaiMonths[parseInt(dParts[1])-1]} ${parseInt(dParts[0])+543}`;
+        function openModal() {
+            document.getElementById('transaction-form').reset();
+            const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+            document.getElementById('t-date').value = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
+            document.getElementById('t-time').value = String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
+            toggleFormFields();
+            document.getElementById('add-modal').classList.add('active');
+        }
+
+        document.getElementById('transaction-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+            btnSubmit.innerHTML = 'กำลังบันทึก...'; btnSubmit.disabled = true;
+
+            const isIncome = document.getElementById('type-income').checked;
+            let finalDescription = '';
+            let staff = '';
+
+            if(isIncome) {
+                const pax = document.getElementById('t-pax').value;
+                const referrer = document.getElementById('t-referrer').value;
+                finalDescription = `ลูกค้า ${pax} คน`;
+                staff = referrer; // ใช้ช่องคนส่งรถเก็บเป็น staff
+            } else {
+                finalDescription = document.getElementById('t-desc-expense').value;
+                staff = '-'; // รายจ่ายอาจไม่มีคนส่งรถ
+            }
+
+            try {
+                await sb.from('atv_transactions').insert([{
+                    transaction_type: isIncome ? 'income' : 'expense',
+                    transaction_date: document.getElementById('t-date').value,
+                    action_time: document.getElementById('t-time').value,
+                    description: finalDescription,
+                    staff_name: staff,
+                    amount: parseInt(document.getElementById('t-amount').value)
+                }]);
+                closeModal('add-modal'); showToast('บันทึกสำเร็จ!'); fetchAtvData();
+            } catch(err) { alert('บันทึกผิดพลาด'); }
+            btnSubmit.innerHTML = 'บันทึกข้อมูลลงระบบ'; btnSubmit.disabled = false;
+        });
+
+        async function deleteData(id) {
+            if(!confirm('ยืนยันลบรายการนี้?')) return;
+            document.getElementById('cloud-loading').style.display = 'flex';
+            try { await sb.from('atv_transactions').delete().eq('id', id); showToast('ลบสำเร็จ'); fetchAtvData(); } catch(e) { alert('ลบไม่สำเร็จ'); }
+        }
+
+        function generateReport() {
+            if(atvData.length === 0) { alert('ไม่มีข้อมูลให้สรุปยอดค่ะ'); return; }
+
+            const startStr = document.getElementById('filter-start').value; 
+            const endStr = document.getElementById('filter-end').value;
+            const formatThaiDate = (dStr) => { const d = new Date(dStr); return `${d.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][d.getMonth()]} ${d.getFullYear()+543}`; };
+
+            setElText('a4-date-range', startStr === endStr ? `ประจำวันที่ ${formatThaiDate(startStr)}` : `รอบบิลระหว่างวันที่ ${formatThaiDate(startStr)} ถึง ${formatThaiDate(endStr)}`);
             
-            document.getElementById('a4-date').innerText = thaiDate;
-            document.getElementById('a4-total-rev').innerText = `฿${rev.toLocaleString()}`;
-            document.getElementById('a4-total-exp').innerText = `-฿${exp.toLocaleString()}`;
-            document.getElementById('a4-net').innerText = `฿${net.toLocaleString()}`;
-            document.getElementById('a4-share-boy').innerText = `฿${share.toLocaleString()}`;
-            document.getElementById('a4-share-partner').innerText = `฿${share.toLocaleString()}`;
+            setElText('a4-income', document.getElementById('stat-income').innerText);
+            setElText('a4-expense', document.getElementById('stat-expense').innerText);
+            setElText('a4-profit', document.getElementById('stat-profit').innerText);
+            
+            // ใส่ยอดส่วนแบ่งที่คำนวณมาถูกต้องแล้ว
+            setElText('a4-arboy', document.getElementById('stat-arboy').innerText);
+            setElText('a4-nui', document.getElementById('stat-nui').innerText);
 
-            const a4Rides = document.getElementById('a4-rides-body');
-            a4Rides.innerHTML = '';
-            rides.forEach(r => {
-                a4Rides.innerHTML += `<tr><td class="p-2 border-b border-slate-100">${r.time}</td><td class="p-2 border-b border-slate-100">${r.source}</td><td class="p-2 border-b border-slate-100 text-center">${r.pax}</td><td class="p-2 border-b border-slate-100 text-right font-bold">฿${r.net.toLocaleString()}</td></tr>`;
+            const txList = document.getElementById('a4-transactions'); 
+            txList.innerHTML = '';
+            
+            atvData.forEach(item => {
+                const isInc = item.transaction_type === 'income';
+                const dObj = new Date(item.transaction_date);
+                const dShort = `${String(dObj.getDate()).padStart(2,'0')}/${String(dObj.getMonth()+1).padStart(2,'0')}/${dObj.getFullYear()+543}`;
+                
+                let descHtml = item.description;
+                if(isInc && item.staff_name && item.staff_name !== '-') {
+                    descHtml += ` <span style="color:#64748b; font-size: 14pt;">(ส่งโดย: ${item.staff_name})</span>`;
+                }
+
+                txList.innerHTML += `
+                    <tr>
+                        <td style="text-align: center;">${dShort}</td>
+                        <td style="text-align: center; color: ${isInc ? '#10b981' : '#ef4444'};">${isInc ? 'รายรับ' : 'รายจ่าย'}</td>
+                        <td>${descHtml}</td>
+                        <td style="text-align: right; font-weight: bold; color: ${isInc ? '#10b981' : '#ef4444'};">${parseFloat(item.amount).toLocaleString()}</td>
+                    </tr>`;
             });
 
-            const a4Exp = document.getElementById('a4-expenses-body');
-            a4Exp.innerHTML = '';
-            expenses.forEach(e => {
-                a4Exp.innerHTML += `<tr><td class="p-2 border-b border-red-50">${e.name}</td><td class="p-2 border-b border-red-50 text-right font-bold text-red-500">-฿${e.amount.toLocaleString()}</td></tr>`;
-            });
-        }
-
-        function openA4Modal() {
-            document.getElementById('modal-a4').classList.add('active');
-        }
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('active');
-        }
-
-        function downloadA4() {
-            const captureArea = document.getElementById('a4-report-container');
-            // รัน html2canvas
-            html2canvas(captureArea, { scale: 2 }).then(canvas => {
+            setElText('a4-print-time', new Date().toLocaleString('th-TH'));
+            showToast('กำลังสร้างรูปเอกสาร A4...');
+            
+            const area = document.getElementById('a4-render-area');
+            area.style.top = '0'; area.style.left = '0'; area.style.zIndex = '-1';
+            
+            // Render รูปขนาด A4 คมชัดสูง (Scale 2.5)
+            html2canvas(area, { scale: 2.5, backgroundColor: "#ffffff" }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `สรุปยอด_ATV_${document.getElementById('filter-date').value}.png`;
+                link.download = `ATV_Report_A4_${startStr}_to_${endStr}.png`;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
+                area.style.top = '-9999px'; area.style.left = '-9999px';
+                showToast('สร้างเอกสารสำเร็จ!');
             });
         }
 
-        initPage();
+        initDateRange(); fetchAtvData();
     </script>
 </body>
 </html>
