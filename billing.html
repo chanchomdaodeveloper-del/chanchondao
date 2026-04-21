@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ชานชมดาว - จัดการบิล & ของใช้ (Mobile Ready)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Anuphan', sans-serif; background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
+        
+        /* 📱 ระบบ Sidebar ที่รองรับมือถือ (อัปเดตใหม่!) */
+        .sidebar { height: 100vh; position: fixed; left: 0; top: 0; width: 260px; background: white; border-right: 1px solid #f1f5f9; z-index: 50; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar.open { transform: translateX(0); }
+        
+        .mobile-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 40; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(2px); }
+        .mobile-overlay.open { opacity: 1; pointer-events: auto; }
+
+        .main-content { min-height: 100vh; padding: 1.5rem; transition: margin 0.3s ease; width: 100%; }
+
+        /* สำหรับจอคอม (lg: 1024px ขึ้นไป) */
+        @media (min-width: 1024px) {
+            .sidebar { transform: translateX(0); }
+            .main-content { margin-left: 260px; width: calc(100% - 260px); padding: 2rem; }
+            .mobile-overlay { display: none !important; }
+        }
+
+        /* Nav & UI */
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #64748b; font-weight: 500; border-radius: 12px; transition: all 0.2s; margin-bottom: 8px; }
+        .nav-item:hover, .nav-item.active { background: #eff6ff; color: #1f8ffd; }
+        .nav-item.active { font-weight: 600; }
+
+        .bill-card { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 20px; transition: all 0.2s; cursor: pointer; }
+        .bill-card:hover { border-color: #1f8ffd; box-shadow: 0 10px 15px -3px rgba(31,143,253,0.1); transform: translateY(-2px); }
+
+        /* Modals */
+        .modal-wrap { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 1rem; }
+        .modal-wrap.active { opacity: 1; pointer-events: auto; }
+        .modal-bg { position: absolute; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); }
+        .modal-box { position: relative; background: white; border-radius: 28px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+        .modal-wrap.active .modal-box { transform: scale(1); }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 30px; right: 30px; background: #0f172a; color: white; padding: 16px 24px; border-radius: 16px; font-weight: 600; display: flex; align-items: center; gap: 12px; transform: translateY(100px); opacity: 0; transition: all 0.4s; z-index: 100; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="mobile-overlay" class="mobile-overlay" onclick="toggleSidebar()"></div>
+
+    <aside id="sidebar" class="sidebar p-6 flex flex-col">
+        <div class="flex items-center justify-between mb-10 px-2">
+            <div class="flex items-center gap-3">
+                <div class="bg-[#1f8ffd] p-2 rounded-xl text-white shadow-lg"><i data-lucide="moon-star" class="w-6 h-6"></i></div>
+                <h1 class="text-xl font-bold text-slate-800">ชานชมดาว</h1>
+            </div>
+            <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 hover:text-slate-800 bg-slate-50 p-2 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <nav class="flex-1 space-y-1">
+            <a href="index.html" class="nav-item"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> ภาพรวม</a>
+            <a href="calendar.html" class="nav-item"><i data-lucide="calendar-days" class="w-5 h-5"></i> ปฏิทินจองห้องพัก</a>
+            <a href="atv.html" class="nav-item"><i data-lucide="car-front" class="w-5 h-5"></i> ระบบบัญชี ATV</a>
+            <a href="billing.html" class="nav-item active"><i data-lucide="receipt" class="w-5 h-5"></i> จัดการบิล / ของใช้</a>
+        </nav>
+        <div class="border-t border-slate-100 pt-6 mt-6">
+            <a href="settings.html" class="nav-item"><i data-lucide="settings" class="w-5 h-5"></i> ตั้งค่าระบบ</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden bg-white border border-slate-200 text-slate-600 p-2.5 rounded-xl shadow-sm hover:bg-slate-50"><i data-lucide="menu" class="w-6 h-6"></i></button>
+                <div>
+                    <h2 class="text-2xl lg:text-3xl font-black text-slate-800 tracking-tight">รายการเปิดบิลห้องพัก</h2>
+                    <p class="text-sm lg:text-base text-slate-500 font-medium">เพิ่มค่าน้ำแข็ง ถ่าน และเก็บเงินสุทธิก่อนเช็คเอาท์</p>
+                </div>
+            </div>
+            
+            <div class="w-full md:w-auto relative">
+                <i data-lucide="search" class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="search-bill" placeholder="ค้นหาชื่อลูกค้า หรือชื่อห้อง..." class="w-full md:w-72 bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-4 py-3 outline-none focus:border-[#1f8ffd] focus:ring-2 focus:ring-blue-100 transition" onkeyup="renderActiveBills()">
+            </div>
+        </header>
+
+        <div class="mb-6 flex justify-between items-center">
+            <h3 class="text-lg font-black text-slate-800 flex items-center gap-2"><i data-lucide="door-open" class="text-emerald-500 w-5 h-5"></i> ห้องที่กำลังเข้าพัก (Active)</h3>
+            <span class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-bold border border-emerald-100">ดึงข้อมูลอัตโนมัติจากปฏิทิน</span>
+        </div>
+
+        <div id="active-bills-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            </div>
+
+    </main>
+
+    <div id="pos-modal" class="modal-wrap">
+        <div class="modal-bg" onclick="closeModal('pos-modal')"></div>
+        <div class="modal-box flex flex-col h-full max-h-[85vh]">
+            
+            <div class="sticky top-0 bg-white border-b border-slate-100 px-6 py-5 flex justify-between items-center z-10 rounded-t-[28px]">
+                <div>
+                    <span class="bg-[#1f8ffd] text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-1 inline-block">จัดการบิล</span>
+                    <h2 id="modal-bill-room" class="text-xl font-black text-slate-800">ชื่อห้องพัก</h2>
+                </div>
+                <button onclick="closeModal('pos-modal')" class="bg-slate-50 p-2 rounded-full text-slate-400 hover:text-slate-800"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <input type="hidden" id="current-booking-id">
+                
+                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200 mb-6">
+                    <p class="text-sm text-slate-500 font-bold mb-3 flex items-center gap-2"><i data-lucide="user" class="w-4 h-4"></i> ลูกค้า: <span id="modal-bill-name" class="text-slate-800">-</span></p>
+                    <div class="flex justify-between items-center text-sm border-b border-slate-200 pb-2 mb-2">
+                        <span class="text-slate-600">ค่าที่พัก (รวม)</span>
+                        <span id="modal-base-total" class="font-bold text-slate-800">฿0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-red-500 font-bold">
+                        <span>หักมัดจำแล้ว</span>
+                        <span id="modal-base-deposit">-฿0</span>
+                    </div>
+                </div>
+
+                <h3 class="text-sm font-bold text-slate-800 mb-3 border-l-4 border-[#1f8ffd] pl-2">เพิ่มของใช้ / กิจกรรม</h3>
+                
+                <div class="grid grid-cols-2 gap-3 mb-6" id="quick-items-grid">
+                    </div>
+
+                <div class="border border-slate-200 rounded-xl overflow-hidden mb-6">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-500 text-xs font-bold">
+                            <tr><th class="py-2 px-4">รายการเพิ่ม</th><th class="py-2 px-4 text-center">จำนวน</th><th class="py-2 px-4 text-right">รวม (฿)</th></tr>
+                        </thead>
+                        <tbody id="extra-items-list">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 text-center">
+                    <p class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">ยอดสุทธิที่ต้องชำระ (เก็บเงินลูกค้า)</p>
+                    <h2 id="modal-final-pay" class="text-4xl font-black text-[#1f8ffd]">฿0</h2>
+                </div>
+            </div>
+
+            <div class="sticky bottom-0 bg-white border-t border-slate-100 p-6 rounded-b-[28px] flex gap-3">
+                <button onclick="checkoutAndClear()" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition flex justify-center items-center gap-2">
+                    <i data-lucide="check-circle" class="w-5 h-5"></i> เช็คเอาท์ & เคลียร์บิล
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"><i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i> <span id="toast-msg">ดำเนินการสำเร็จ</span></div>
+
+    <script>
+        lucide.createIcons();
+
+        // 📱 ฟังก์ชันเปิด-ปิด Sidebar มือถือ
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('mobile-overlay').classList.toggle('open');
+        }
+
+        // =====================================
+        // โหลดฐานข้อมูลจาก LocalStorage
+        // =====================================
+        const roomsDB = JSON.parse(localStorage.getItem('ccd_rooms_v2')) || [];
+        const bookingsDB = JSON.parse(localStorage.getItem('ccd_bookings_v3')) || [];
+        const itemsDB = JSON.parse(localStorage.getItem('ccd_items_v2')) || [];
+        
+        // จำลองคลังเก็บ "ของสั่งเพิ่ม" แยกตาม Booking ID
+        let extraBillsDB = JSON.parse(localStorage.getItem('ccd_extra_bills')) || {};
+
+        function saveData() {
+            localStorage.setItem('ccd_extra_bills', JSON.stringify(extraBillsDB));
+            // ถ้ามีการลบ/เช็คเอาท์ จะอัปเดต bookingsDB ด้วย
+            localStorage.setItem('ccd_bookings_v3', JSON.stringify(bookingsDB));
+        }
+
+        // =====================================
+        // ดึงรายการบิลห้องที่กำลังพัก (Active)
+        // =====================================
+        function renderActiveBills() {
+            const grid = document.getElementById('active-bills-grid');
+            const searchVal = document.getElementById('search-bill').value.toLowerCase();
+            grid.innerHTML = '';
+
+            const todayStr = new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            let activeCount = 0;
+
+            bookingsDB.forEach(booking => {
+                // เช็คว่าวันนี้อยู่ในช่วงเข้าพัก และยังไม่ถึงวันเช็คเอาท์ (หรือถึงวันเช็คเอาท์แล้วแต่ยังไม่เคลียร์)
+                // เพื่อความง่าย เราจะดึงทุก Booking ที่ยอดเข้าพักคลุมถึงวันนี้
+                if (booking.checkIn <= todayStr && booking.checkOut >= todayStr) {
+                    
+                    // หากำไรห้อง
+                    let roomNames = [];
+                    booking.roomIds.forEach(rid => {
+                        const r = roomsDB.find(room => room.id === parseInt(rid));
+                        if(r) roomNames.push(r.name);
+                    });
+                    const rStr = roomNames.join(', ');
+
+                    // กรองค้นหา
+                    if (searchVal && !rStr.toLowerCase().includes(searchVal) && !booking.name.toLowerCase().includes(searchVal)) return;
+
+                    activeCount++;
+
+                    // คำนวณยอดค้างรวมถึงของที่สั่งเพิ่ม
+                    const extras = extraBillsDB[booking.id] || [];
+                    const extraTotal = extras.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                    const remain = booking.total - booking.deposit;
+                    const finalPay = remain + extraTotal;
+
+                    // ดีไซน์ป้ายสถานะ
+                    const isCheckoutDay = (booking.checkOut === todayStr);
+                    const badge = isCheckoutDay 
+                        ? `<span class="bg-orange-50 text-orange-600 text-[10px] font-bold px-2 py-1 rounded border border-orange-100">ต้องเช็คเอาท์วันนี้</span>`
+                        : `<span class="bg-emerald-50 text-emerald-600 text-[10px] font-bold px-2 py-1 rounded border border-emerald-100">กำลังเข้าพัก</span>`;
+
+                    grid.innerHTML += `
+                        <div class="bill-card" onclick="openPosModal(${booking.id})">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    ${badge}
+                                    <h4 class="font-black text-lg text-slate-800 mt-2">${rStr}</h4>
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded-xl text-slate-400"><i data-lucide="receipt" class="w-5 h-5"></i></div>
+                            </div>
+                            <p class="text-sm text-slate-500 font-medium mb-4"><i data-lucide="user" class="w-3 h-3 inline"></i> ${booking.name}</p>
+                            
+                            <div class="border-t border-slate-100 pt-3 flex justify-between items-end">
+                                <span class="text-xs font-bold text-slate-400">ยอดที่ต้องเก็บ (รวมสั่งเพิ่ม)</span>
+                                <span class="font-black text-xl text-[#1f8ffd]">฿${finalPay.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (activeCount === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 bg-white rounded-3xl border border-slate-100"><p class="text-slate-400 font-medium">ไม่มีห้องที่กำลังเข้าพักในขณะนี้</p></div>`;
+            }
+            lucide.createIcons();
+        }
+
+        // =====================================
+        // ระบบจัดการ Modal POS (เพิ่มของ / คิดเงิน)
+        // =====================================
+        function openPosModal(bookingId) {
+            const booking = bookingsDB.find(b => b.id === bookingId);
+            document.getElementById('current-booking-id').value = bookingId;
+
+            // เอาชื่อห้องมาแสดง
+            let roomNames = [];
+            booking.roomIds.forEach(rid => {
+                const r = roomsDB.find(room => room.id === parseInt(rid));
+                if(r) roomNames.push(r.name);
+            });
+            document.getElementById('modal-bill-room').innerText = roomNames.join(', ');
+            document.getElementById('modal-bill-name').innerText = booking.name;
+            
+            document.getElementById('modal-base-total').innerText = `฿${booking.total.toLocaleString()}`;
+            document.getElementById('modal-base-deposit').innerText = `-฿${booking.deposit.toLocaleString()}`;
+
+            // โหลดปุ่มรายการสินค้าที่สร้างไว้ใน Settings
+            const btnGrid = document.getElementById('quick-items-grid');
+            btnGrid.innerHTML = '';
+            itemsDB.forEach(item => {
+                btnGrid.innerHTML += `
+                    <button onclick="addExtraItem(${booking.id}, '${item.name}', ${item.price})" class="bg-white border border-slate-200 p-3 rounded-xl hover:border-[#1f8ffd] hover:bg-blue-50 transition text-left shadow-sm">
+                        <p class="font-bold text-slate-800 text-sm mb-1 truncate">${item.name}</p>
+                        <p class="text-[#1f8ffd] font-black text-xs">+฿${item.price}</p>
+                    </button>
+                `;
+            });
+
+            renderExtraItems(bookingId);
+            document.getElementById('pos-modal').classList.add('active');
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        // =====================================
+        // ตะกร้าสินค้า (Cart System)
+        // =====================================
+        function addExtraItem(bookingId, itemName, itemPrice) {
+            if (!extraBillsDB[bookingId]) extraBillsDB[bookingId] = [];
+            
+            // เช็คว่ามีรายการนี้อยู่แล้วไหม ถ้ามีให้บวกจำนวน (Qty)
+            const existingItem = extraBillsDB[bookingId].find(i => i.name === itemName);
+            if (existingItem) {
+                existingItem.qty += 1;
+            } else {
+                extraBillsDB[bookingId].push({ name: itemName, price: itemPrice, qty: 1 });
+            }
+            
+            saveData();
+            renderExtraItems(bookingId);
+        }
+
+        function removeExtraItem(bookingId, itemName) {
+            if (!extraBillsDB[bookingId]) return;
+            extraBillsDB[bookingId] = extraBillsDB[bookingId].filter(i => i.name !== itemName);
+            saveData();
+            renderExtraItems(bookingId);
+        }
+
+        function renderExtraItems(bookingId) {
+            const list = document.getElementById('extra-items-list');
+            const extras = extraBillsDB[bookingId] || [];
+            list.innerHTML = '';
+            
+            let extraTotal = 0;
+
+            if (extras.length === 0) {
+                list.innerHTML = '<tr><td colspan="3" class="py-3 px-4 text-center text-xs text-slate-400 italic">ยังไม่มีรายการสั่งเพิ่ม</td></tr>';
+            } else {
+                extras.forEach(item => {
+                    const rowTotal = item.price * item.qty;
+                    extraTotal += rowTotal;
+                    list.innerHTML += `
+                        <tr class="border-b border-slate-100">
+                            <td class="py-3 px-4 font-bold text-slate-700">${item.name}</td>
+                            <td class="py-3 px-4 text-center font-bold">x${item.qty}</td>
+                            <td class="py-3 px-4 text-right font-black text-slate-800">฿${rowTotal.toLocaleString()}
+                                <button onclick="removeExtraItem(${bookingId}, '${item.name}')" class="ml-2 text-red-400 hover:text-red-600"><i data-lucide="x-circle" class="w-4 h-4 inline"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // คำนวณยอดสุทธิ
+            const booking = bookingsDB.find(b => b.id === bookingId);
+            const remain = booking.total - booking.deposit;
+            const finalPay = remain + extraTotal;
+            
+            document.getElementById('modal-final-pay').innerText = `฿${finalPay.toLocaleString()}`;
+            lucide.createIcons();
+            
+            // อัปเดตตารางด้านนอกด้วย
+            renderActiveBills();
+        }
+
+        function checkoutAndClear() {
+            if (confirm('ยืนยันการเคลียร์บิลและเช็คเอาท์ลูกค้ารายนี้? (ประวัติจะถูกเก็บไว้)')) {
+                const bId = parseInt(document.getElementById('current-booking-id').value);
+                
+                // สำหรับระบบ Demo: เราจะใช้วิธีลบ Booking ออกจาก Active เพื่อเคลียร์ตาราง
+                // (ในระบบจริงบน Supabase เราจะเปลี่ยนสถานะเป็น status = 'completed')
+                const index = bookingsDB.findIndex(b => b.id === bId);
+                if(index > -1) {
+                    bookingsDB.splice(index, 1);
+                    delete extraBillsDB[bId];
+                    saveData();
+                }
+
+                closeModal('pos-modal');
+                renderActiveBills();
+                
+                const t = document.getElementById('toast');
+                document.getElementById('toast-msg').innerText = 'เช็คเอาท์และบันทึกรายได้สำเร็จ!';
+                t.classList.add('show');
+                setTimeout(() => t.classList.remove('show'), 3000);
+            }
+        }
+
+        // Init
+        renderActiveBills();
+    </script>
+</body>
+</html>
