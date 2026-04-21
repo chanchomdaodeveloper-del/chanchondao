@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ชานชมดาว - ระบบบัญชี ATV (A4 Report & 50/50 Split)</title>
+    <title>ชานชมดาว - ระบบบัญชี ATV (A4 Report & Pending Amount)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@100;300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -218,8 +218,11 @@
                 </div>
 
                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <label class="block text-xs font-bold text-slate-500 mb-1">จำนวนเงิน (บาท)</label>
-                    <input type="number" id="t-amount" required class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-2xl font-black text-[#1f8ffd] bg-white" placeholder="0">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-slate-500">จำนวนเงิน (บาท)</label>
+                        <span class="text-[10px] text-orange-500 font-bold bg-orange-50 px-2 py-0.5 rounded border border-orange-100">สามารถเว้นว่างได้</span>
+                    </div>
+                    <input type="number" id="t-amount" class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-[#1f8ffd] text-2xl font-black text-[#1f8ffd] bg-white" placeholder="รอกรอกยอดเงิน...">
                 </div>
 
                 <button type="submit" class="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-md hover:bg-slate-800 transition text-lg mt-2">บันทึกข้อมูลลงระบบ</button>
@@ -268,8 +271,7 @@
                     <th style="width: 20%;">จำนวนเงิน (฿)</th>
                 </tr>
             </thead>
-            <tbody id="a4-transactions">
-                </tbody>
+            <tbody id="a4-transactions"></tbody>
         </table>
 
         <div style="text-align: right; font-size: 12pt; color: #64748b; margin-top: 20px;">
@@ -288,6 +290,7 @@
 
         const sb = supabase.createClient('https://derxnhwfecvwpqaeufly.supabase.co', 'sb_publishable_qmrZBAxD8KbN3hTPrF-xOA_oxbkYep6');
         let atvData = [];
+        let currentEditingId = null; // เพิ่มตัวแปรสำหรับแก้ไขยอดเงิน
 
         function initDateRange() {
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -304,15 +307,11 @@
                 document.getElementById('income-fields').classList.remove('hidden');
                 document.getElementById('expense-fields').classList.add('hidden');
                 tAmount.classList.remove('text-red-500'); tAmount.classList.add('text-[#1f8ffd]');
-                document.getElementById('t-pax').required = true;
-                document.getElementById('t-referrer').required = true;
                 document.getElementById('t-desc-expense').required = false;
             } else {
                 document.getElementById('income-fields').classList.add('hidden');
                 document.getElementById('expense-fields').classList.remove('hidden');
                 tAmount.classList.remove('text-[#1f8ffd]'); tAmount.classList.add('text-red-500');
-                document.getElementById('t-pax').required = false;
-                document.getElementById('t-referrer').required = false;
                 document.getElementById('t-desc-expense').required = true;
             }
         }
@@ -330,7 +329,6 @@
                                         .lte('transaction_date', end)
                                         .order('transaction_date', { ascending: false })
                                         .order('action_time', { ascending: false });
-                
                 if (error) throw error;
                 atvData = data || [];
                 renderAtvData();
@@ -348,8 +346,13 @@
             } else {
                 atvData.forEach(item => {
                     const isIncome = item.transaction_type === 'income';
-                    const amount = parseFloat(item.amount);
-                    if (isIncome) totalIncome += amount; else totalExpense += amount;
+                    const amount = item.amount;
+                    const isNullAmount = (amount === null);
+
+                    if (!isNullAmount) {
+                        if (isIncome) totalIncome += parseFloat(amount); 
+                        else totalExpense += parseFloat(amount);
+                    }
 
                     const dateObj = new Date(item.transaction_date);
                     const dateStr = `${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()+543}`;
@@ -359,26 +362,35 @@
                         ? `<span class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[10px] font-bold border border-emerald-100">รายรับ</span>` 
                         : `<span class="bg-red-50 text-red-500 px-2 py-1 rounded-md text-[10px] font-bold border border-red-100">รายจ่าย</span>`;
                     
+                    // 🌟 จัดการแสดงผลยอดเงิน (ถ้าว่าง ให้ขึ้นป้ายกระพริบ)
+                    let amountDisplay = '';
+                    if (isNullAmount) {
+                        amountDisplay = '<span class="bg-orange-50 text-orange-500 px-2 py-1 rounded text-[10px] font-bold border border-orange-200 animate-pulse">รอกรอกยอดเงิน</span>';
+                    } else {
+                        amountDisplay = `<span class="${isIncome ? 'text-emerald-600' : 'text-red-500'}">${isIncome ? '+' : '-'}฿${parseFloat(amount).toLocaleString()}</span>`;
+                    }
+
                     tbody.innerHTML += `
                         <tr class="hover:bg-slate-50 transition border-b border-slate-50">
                             <td class="py-4 px-6 text-sm font-bold text-slate-600"><span class="block">${dateStr}</span><span class="text-[10px] text-slate-400">${timeStr} น.</span></td>
                             <td class="py-4 px-6">${typeBadge}</td>
                             <td class="py-4 px-6"><p class="text-sm font-bold text-slate-800">${item.description}</p></td>
                             <td class="py-4 px-6 text-sm text-slate-500">${item.staff_name || '-'}</td>
-                            <td class="py-4 px-6 text-right font-black ${isIncome ? 'text-emerald-600' : 'text-red-500'}">${isIncome ? '+' : '-'}฿${amount.toLocaleString()}</td>
-                            <td class="py-4 px-6 text-center"><button onclick="deleteData(${item.id})" class="text-slate-300 hover:text-red-500 p-1 transition"><i data-lucide="trash-2" class="w-4 h-4 inline"></i></button></td>
+                            <td class="py-4 px-6 text-right font-black">${amountDisplay}</td>
+                            <td class="py-4 px-6 text-center">
+                                <button onclick="editData(${item.id})" class="text-slate-300 hover:text-[#1f8ffd] p-1 transition mx-1"><i data-lucide="edit-3" class="w-4 h-4 inline"></i></button>
+                                <button onclick="deleteData(${item.id})" class="text-slate-300 hover:text-red-500 p-1 transition mx-1"><i data-lucide="trash-2" class="w-4 h-4 inline"></i></button>
+                            </td>
                         </tr>`;
                 });
             }
 
-            // คณิตศาสตร์ที่ถูกต้อง: (รับ - จ่าย) / 2
             const netProfit = totalIncome - totalExpense;
             const splitAmount = netProfit / 2;
 
             setElText('stat-income', `฿${totalIncome.toLocaleString()}`);
             setElText('stat-expense', `฿${totalExpense.toLocaleString()}`);
             setElText('stat-profit', `฿${netProfit.toLocaleString()}`);
-            
             setElText('stat-arboy', `฿${splitAmount.toLocaleString()}`);
             setElText('stat-nui', `฿${splitAmount.toLocaleString()}`);
             
@@ -387,10 +399,38 @@
 
         function openModal() {
             document.getElementById('transaction-form').reset();
+            currentEditingId = null; // รีเซ็ตสถานะการแก้ไข
             const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
             document.getElementById('t-date').value = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
             document.getElementById('t-time').value = String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
             toggleFormFields();
+            document.getElementById('add-modal').classList.add('active');
+        }
+
+        // 🌟 ดึงข้อมูลเดิมมาแก้ยอดเงิน
+        function editData(id) {
+            const item = atvData.find(x => x.id === id);
+            if(!item) return;
+            currentEditingId = id;
+
+            if(item.transaction_type === 'income') document.getElementById('type-income').checked = true;
+            else document.getElementById('type-expense').checked = true;
+            
+            toggleFormFields();
+
+            document.getElementById('t-date').value = item.transaction_date;
+            document.getElementById('t-time').value = item.action_time || '';
+
+            if(item.transaction_type === 'income') {
+                const paxMatch = item.description.match(/\d+/);
+                document.getElementById('t-pax').value = paxMatch ? paxMatch[0] : '';
+                document.getElementById('t-referrer').value = item.staff_name !== '-' ? item.staff_name : '';
+            } else {
+                document.getElementById('t-desc-expense').value = item.description;
+            }
+
+            // ถ้ายอดเดิมเป็น null ให้กล่องว่างเปล่า
+            document.getElementById('t-amount').value = item.amount !== null ? item.amount : '';
             document.getElementById('add-modal').classList.add('active');
         }
 
@@ -406,23 +446,35 @@
             if(isIncome) {
                 const pax = document.getElementById('t-pax').value;
                 const referrer = document.getElementById('t-referrer').value;
-                finalDescription = `ลูกค้า ${pax} คน`;
-                staff = referrer; // ใช้ช่องคนส่งรถเก็บเป็น staff
+                finalDescription = `ลูกค้า ${pax || '?'} คน`;
+                staff = referrer || '-';
             } else {
                 finalDescription = document.getElementById('t-desc-expense').value;
-                staff = '-'; // รายจ่ายอาจไม่มีคนส่งรถ
+                staff = '-';
             }
 
+            // 🌟 ถ้ายอดเงินว่าง ให้เซฟเป็น null
+            const amtInput = document.getElementById('t-amount').value;
+            const amountToSave = amtInput === '' ? null : parseInt(amtInput);
+
+            const payload = {
+                transaction_type: isIncome ? 'income' : 'expense',
+                transaction_date: document.getElementById('t-date').value,
+                action_time: document.getElementById('t-time').value,
+                description: finalDescription,
+                staff_name: staff,
+                amount: amountToSave
+            };
+
             try {
-                await sb.from('atv_transactions').insert([{
-                    transaction_type: isIncome ? 'income' : 'expense',
-                    transaction_date: document.getElementById('t-date').value,
-                    action_time: document.getElementById('t-time').value,
-                    description: finalDescription,
-                    staff_name: staff,
-                    amount: parseInt(document.getElementById('t-amount').value)
-                }]);
-                closeModal('add-modal'); showToast('บันทึกสำเร็จ!'); fetchAtvData();
+                if(currentEditingId) {
+                    await sb.from('atv_transactions').update(payload).eq('id', currentEditingId);
+                    showToast('อัปเดตข้อมูลสำเร็จ!');
+                } else {
+                    await sb.from('atv_transactions').insert([payload]);
+                    showToast('บันทึกข้อมูลใหม่สำเร็จ!');
+                }
+                closeModal('add-modal'); fetchAtvData();
             } catch(err) { alert('บันทึกผิดพลาด'); }
             btnSubmit.innerHTML = 'บันทึกข้อมูลลงระบบ'; btnSubmit.disabled = false;
         });
@@ -446,7 +498,6 @@
             setElText('a4-expense', document.getElementById('stat-expense').innerText);
             setElText('a4-profit', document.getElementById('stat-profit').innerText);
             
-            // ใส่ยอดส่วนแบ่งที่คำนวณมาถูกต้องแล้ว
             setElText('a4-arboy', document.getElementById('stat-arboy').innerText);
             setElText('a4-nui', document.getElementById('stat-nui').innerText);
 
@@ -463,12 +514,16 @@
                     descHtml += ` <span style="color:#64748b; font-size: 14pt;">(ส่งโดย: ${item.staff_name})</span>`;
                 }
 
+                // 🌟 ดักจับยอดเงินว่างในกระดาษ A4
+                const isNullAmt = (item.amount === null);
+                const amtDisplay = isNullAmt ? '<span style="color:#f97316; font-size:12pt;">รอกรอกยอด</span>' : parseFloat(item.amount).toLocaleString();
+
                 txList.innerHTML += `
                     <tr>
                         <td style="text-align: center;">${dShort}</td>
                         <td style="text-align: center; color: ${isInc ? '#10b981' : '#ef4444'};">${isInc ? 'รายรับ' : 'รายจ่าย'}</td>
                         <td>${descHtml}</td>
-                        <td style="text-align: right; font-weight: bold; color: ${isInc ? '#10b981' : '#ef4444'};">${parseFloat(item.amount).toLocaleString()}</td>
+                        <td style="text-align: right; font-weight: bold; color: ${isNullAmt ? '' : (isInc ? '#10b981' : '#ef4444')};">${amtDisplay}</td>
                     </tr>`;
             });
 
@@ -478,7 +533,6 @@
             const area = document.getElementById('a4-render-area');
             area.style.top = '0'; area.style.left = '0'; area.style.zIndex = '-1';
             
-            // Render รูปขนาด A4 คมชัดสูง (Scale 2.5)
             html2canvas(area, { scale: 2.5, backgroundColor: "#ffffff" }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `ATV_Report_A4_${startStr}_to_${endStr}.png`;
